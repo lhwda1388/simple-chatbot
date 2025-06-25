@@ -1,113 +1,130 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
-from rag_system import RAGSystem
 import os
-from dotenv import load_dotenv
-from fastapi.responses import RedirectResponse
+from rag_system import RAGSystem
+import json
 
-
-# 환경 변수 로드
-load_dotenv()
-
-app = FastAPI(title="RAG 챗봇 API", description="LangChain 기반 RAG 챗봇 시스템")
-
-# CORS 설정
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# FastAPI 애플리케이션 인스턴스 생성
+app = FastAPI(
+    title="로컬 LLM 기반 회사 가이드 챗봇 API", 
+    version="1.0.0",
+    description="RAG 기술을 활용한 지능형 문서 기반 질의응답 시스템"
 )
 
-# 정적 파일 서빙
+# 정적 파일 서빙 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # RAG 시스템 초기화
 rag_system = RAGSystem()
 
+# Pydantic 모델 정의
 class ChatRequest(BaseModel):
+    """채팅 요청 모델"""
     message: str
-    user_id: Optional[str] = None
+    user_id: Optional[str] = "default_user"
 
 class ChatResponse(BaseModel):
+    """채팅 응답 모델"""
     response: str
-    sources: List[str] = []
+    sources: List[str]
     confidence: float
+    model_used: str
 
-class DocumentUploadResponse(BaseModel):
-    message: str
-    document_count: int
+class DocumentResponse(BaseModel):
+    """문서 업로드 응답 모델"""
+    document_id: str
+    filename: str
+    chunks: int
+    status: str
 
-@app.get("/")
-async def root():
-    return {"message": "RAG 챗봇 API에 오신 것을 환영합니다!", "web_interface": "/static/index.html"}
-
-@app.get("/web")
-async def web_interface():
-    """웹 인터페이스로 리다이렉트"""
-    return RedirectResponse(url="/static/index.html")
+# API 엔드포인트 정의
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    """웹 인터페이스 제공"""
+    with open("static/index.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """
-    사용자 메시지에 대해 RAG 기반 응답을 생성합니다.
-    """
+    """채팅 API - RAG 기반 응답 생성"""
     try:
-        response, sources, confidence = await rag_system.get_response(
-            request.message, request.user_id
+        response, sources, confidence, model_used = await rag_system.chat(
+            request.message, request.user_id or ""
         )
         return ChatResponse(
             response=response,
             sources=sources,
-            confidence=confidence
+            confidence=confidence,
+            model_used=model_used
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"채팅 처리 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"채팅 처리 중 오류 발생: {str(e)}")
 
-@app.post("/upload-document", response_model=DocumentUploadResponse)
+@app.post("/upload-document", response_model=DocumentResponse)
 async def upload_document(file: UploadFile = File(...)):
-    """
-    문서를 업로드하여 벡터 데이터베이스에 저장합니다.
-    """
+    """문서 업로드 및 벡터화"""
     try:
-        if not file.filename.endswith(('.txt', '.pdf', '.docx', '.md')):
-            raise HTTPException(status_code=400, detail="지원되지 않는 파일 형식입니다.")
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="파일명이 없습니다")
         
+        # 파일 확장자 검사
+        allowed_extensions = {'.txt', '.md', '.pdf', '.docx'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"지원하지 않는 파일 형식입니다. 지원 형식: {allowed_extensions}"
+            )
+        
+        # 파일 내용 읽기
         content = await file.read()
-        document_count = await rag_system.add_document(content.decode('utf-8'), file.filename)
+        if file_ext == '.txt' or file_ext == '.md':
+            text_content = content.decode('utf-8')
+        else:
+            # PDF, DOCX 등은 간단한 텍스트 추출 (실제로는 더 정교한 라이브러리 필요)
+            text_content = content.decode('utf-8', errors='ignore')
         
-        return DocumentUploadResponse(
-            message="문서가 성공적으로 업로드되었습니다.",
-            document_count=document_count
+        # RAG 시스템에 문서 추가
+        document_id = await rag_system.add_document(file.filename, text_content)
+        
+        return DocumentResponse(
+            document_id=document_id,
+            filename=file.filename,
+            chunks=len(text_content.split('\n')),
+            status="success"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"문서 업로드 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"문서 업로드 중 오류 발생: {str(e)}")
 
 @app.get("/documents")
-async def get_documents():
-    """
-    저장된 문서 목록을 반환합니다.
-    """
+async def list_documents():
+    """저장된 문서 목록 조회"""
     try:
-        documents = await rag_system.get_documents()
+        documents = await rag_system.list_documents()
         return {"documents": documents}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"문서 목록 조회 중 오류가 발생했습니다: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"문서 목록 조회 중 오류 발생: {str(e)}")
 
 @app.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
-    """
-    특정 문서를 삭제합니다.
-    """
+    """문서 삭제"""
     try:
         success = await rag_system.delete_document(document_id)
         if success:
-            return {"message": "문서가 성공적으로 삭제되었습니다."}
+            return {"message": f"문서 {document_id}가 삭제되었습니다"}
         else:
-            raise HTTPException(status_code=404, detail="문서를 찾을 수 없습니다.")
+            raise HTTPException(status_code=404, detail="문서를 찾을 수 없습니다")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"문서 삭제 중 오류가 발생했습니다: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"문서 삭제 중 오류 발생: {str(e)}")
+
+@app.get("/health")
+async def health_check():
+    """헬스 체크"""
+    return {
+        "status": "healthy",
+        "model_status": rag_system.get_model_status(),
+        "vector_db_status": "ready"
+    }

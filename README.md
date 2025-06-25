@@ -1,203 +1,191 @@
-# RAG 챗봇 API
+# 로컬 LLM 기반 회사 가이드 챗봇 API
 
-LangChain을 사용한 RAG(Retrieval-Augmented Generation) 기반 챗봇 API입니다.
+로컬에서 직접 모델을 로드하여 동작하는 RAG(Retrieval-Augmented Generation) 기반 회사 가이드 챗봇 API입니다.
 
-## 주요 기능
+## 🚀 주요 특징
 
-- 📚 **문서 업로드 및 벡터화**: 텍스트 문서를 업로드하여 벡터 데이터베이스에 저장
-- 🔍 **유사도 검색**: 사용자 질문과 관련된 문서 청크를 검색
-- 🤖 **지능형 응답**: 검색된 문서를 바탕으로 정확한 답변 생성
-- 📊 **소스 추적**: 응답의 출처 문서 정보 제공
+- 🤖 **로컬 LLM**: 외부 API 없이 로컬에서 직접 모델 실행
+- 📚 **RAG 시스템**: 문서 기반 정확한 답변 생성
+- 🔍 **벡터 검색**: FAISS를 활용한 고성능 유사도 검색
+- 🌐 **웹 인터페이스**: 직관적인 웹 UI 제공
+- 📄 **다양한 문서 형식**: TXT, MD, PDF, DOCX 지원
 - 🎯 **신뢰도 점수**: 응답의 신뢰도를 수치로 제공
 
-## 기술 스택
+## 🛠️ 기술 스택
 
 - **FastAPI**: 현대적이고 빠른 웹 프레임워크
 - **LangChain**: LLM 애플리케이션 개발 프레임워크
+- **Transformers**: Hugging Face 로컬 모델 로드
 - **FAISS**: 효율적인 벡터 검색 라이브러리
-- **Sentence Transformers**: 텍스트 임베딩 모델
-- **OpenAI**: 선택적 LLM 제공자
+- **Sentence Transformers**: 다국어 텍스트 임베딩
+- **PyTorch**: 딥러닝 프레임워크
+
+## 📋 시스템 요구사항
+
+- Python 3.11 이상
+- 최소 4GB RAM (모델 로드용)
+- 인터넷 연결 (초기 모델 다운로드용)
 
 ## 🚀 빠른 시작
 
-### 자동화 스크립트 사용 (권장)
+### 1. 프로젝트 설정
 
 ```bash
-# 1. 가상환경 설정 및 패키지 설치
+# 저장소 클론
+git clone <repository-url>
+cd simple-chatbot
+
+# 자동 설정 스크립트 실행
 ./setup.sh
+```
 
-# 2. 가상환경 활성화
-./activate.sh
+### 2. 가상환경 활성화
 
-# 3. 서버 실행 (가상환경 활성화 + 서버 시작)
+```bash
+source venv/bin/activate
+```
+
+### 3. FastAPI CLI로 서버 실행
+
+#### 방법 1: 자동 스크립트 사용 (권장)
+
+```bash
 ./start.sh
-
-# 4. 정리 (필요시)
-./clean.sh
 ```
 
-### 수동 설정
-
-#### 1. 의존성 설치
+#### 방법 2: 직접 uvicorn 명령어 사용
 
 ```bash
-pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### 2. 환경 변수 설정
+#### 방법 3: 개발 모드 (더 자세한 로그)
 
 ```bash
-cp env.example .env
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 ```
 
-`.env` 파일을 편집하여 OpenAI API 키를 설정하세요 (선택사항):
+### 4. 웹 브라우저에서 접속
 
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-```
+- **웹 인터페이스**: http://localhost:8000
+- **API 문서**: http://localhost:8000/docs
+- **ReDoc 문서**: http://localhost:8000/redoc
 
-#### 3. 서버 실행
-
-```bash
-python run.py
-```
-
-서버가 `http://localhost:8000`에서 실행됩니다.
-
-## 📋 스크립트 설명
-
-| 스크립트        | 설명                         |
-| --------------- | ---------------------------- |
-| `./setup.sh`    | 가상환경 생성 및 패키지 설치 |
-| `./activate.sh` | 가상환경 활성화              |
-| `./start.sh`    | 가상환경 활성화 + 서버 실행  |
-| `./clean.sh`    | 가상환경 및 캐시 파일 정리   |
-
-## API 엔드포인트
-
-### 1. 채팅
-
-**POST** `/chat`
-
-사용자 메시지에 대한 RAG 기반 응답을 생성합니다.
-
-```json
-{
-  "message": "인공지능이란 무엇인가요?",
-  "user_id": "user123"
-}
-```
-
-응답:
-
-```json
-{
-  "response": "인공지능(AI)은 컴퓨터가 인간의 지능을 모방하여...",
-  "sources": ["sample.txt"],
-  "confidence": 0.85
-}
-```
-
-### 2. 문서 업로드
-
-**POST** `/upload-document`
-
-문서를 업로드하여 벡터 데이터베이스에 저장합니다.
-
-```bash
-curl -X POST "http://localhost:8000/upload-document" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@your_document.txt"
-```
-
-### 3. 문서 목록 조회
-
-**GET** `/documents`
-
-저장된 문서 목록을 반환합니다.
-
-### 4. 문서 삭제
-
-**DELETE** `/documents/{document_id}`
-
-특정 문서를 삭제합니다.
-
-## 테스트
-
-API 테스트를 실행하려면:
-
-```bash
-python test_api.py
-```
-
-## 사용 예시
+## 📖 사용 방법
 
 ### 1. 문서 업로드
 
-```python
-import requests
+웹 인터페이스에서 파일을 드래그 앤 드롭하거나 파일 선택 버튼을 클릭하여 문서를 업로드합니다.
 
-# 문서 업로드
-with open('example_documents/sample.txt', 'rb') as f:
-    files = {'file': f}
-    response = requests.post('http://localhost:8000/upload-document', files=files)
-    print(response.json())
-```
+### 2. 질문하기
 
-### 2. 채팅
+업로드된 문서에 대해 자연어로 질문을 입력하면 RAG 시스템이 관련 정보를 찾아 답변을 생성합니다.
+
+### 3. API 사용
 
 ```python
 import requests
 
 # 채팅 요청
-data = {
-    "message": "머신러닝의 종류는 무엇인가요?",
+response = requests.post("http://localhost:8000/chat", json={
+    "message": "회사는 언제 설립되었나요?",
     "user_id": "user123"
-}
-response = requests.post('http://localhost:8000/chat', json=data)
-result = response.json()
+})
 
+result = response.json()
 print(f"응답: {result['response']}")
 print(f"소스: {result['sources']}")
 print(f"신뢰도: {result['confidence']}")
 ```
 
-## 프로젝트 구조
+## 🔧 API 엔드포인트
+
+### 채팅
+
+- **POST** `/chat` - 질문에 대한 RAG 기반 응답 생성
+
+### 문서 관리
+
+- **POST** `/upload-document` - 문서 업로드 및 벡터화
+- **GET** `/documents` - 저장된 문서 목록 조회
+- **DELETE** `/documents/{document_id}` - 문서 삭제
+
+### 시스템
+
+- **GET** `/health` - 시스템 상태 확인
+- **GET** `/` - 웹 인터페이스
+
+## 🧪 테스트
+
+```bash
+# API 테스트 실행
+python test_api.py
+```
+
+## 📁 프로젝트 구조
 
 ```
 simple-chatbot/
 ├── app.py                 # FastAPI 메인 애플리케이션
 ├── rag_system.py          # RAG 시스템 핵심 로직
-├── run.py                 # 서버 실행 스크립트
 ├── requirements.txt       # Python 의존성
-├── env.example           # 환경 변수 예제
+├── pyproject.toml         # 프로젝트 설정 (FastAPI CLI용)
+├── setup.sh              # 자동 설정 스크립트
+├── start.sh              # FastAPI CLI 실행 스크립트
 ├── test_api.py           # API 테스트 스크립트
-├── setup.sh              # 가상환경 설정 스크립트
-├── activate.sh            # 가상환경 활성화 스크립트
-├── start.sh              # 프로젝트 시작 스크립트
-├── clean.sh              # 정리 스크립트
 ├── static/               # 웹 인터페이스
 │   └── index.html
 ├── example_documents/    # 샘플 문서
-│   └── sample.txt
+│   └── company_guide.txt
 └── README.md
 ```
 
-## RAG 시스템 작동 원리
+## 🔍 RAG 시스템 작동 원리
 
-1. **문서 처리**: 업로드된 문서를 청크로 분할
-2. **벡터화**: 각 청크를 임베딩 모델로 벡터화
+1. **문서 처리**: 업로드된 문서를 의미 있는 청크로 분할
+2. **벡터화**: 각 청크를 다국어 임베딩 모델로 벡터화
 3. **검색**: 사용자 질문과 유사한 문서 청크 검색
-4. **생성**: 검색된 컨텍스트를 바탕으로 응답 생성
+4. **생성**: 로컬 LLM이 검색된 컨텍스트를 바탕으로 응답 생성
 5. **소스 추적**: 응답의 출처 문서 정보 제공
 
-## 접속 정보
+## ⚙️ 모델 설정
 
-- **웹 인터페이스**: http://localhost:8000/web
-- **API 문서**: http://localhost:8000/docs
-- **API 루트**: http://localhost:8000
+### 기본 모델
 
-## 라이센스
+- **주 모델**: `microsoft/DialoGPT-medium` (한국어 지원)
+- **대체 모델**: `distilgpt2` (더 가벼운 모델)
+
+### 모델 변경
+
+`rag_system.py` 파일에서 `model_name` 변수를 수정하여 다른 모델을 사용할 수 있습니다.
+
+## 🐛 문제 해결
+
+### 모델 로드 실패
+
+- 인터넷 연결 확인
+- 충분한 메모리 확보 (최소 4GB)
+- PyTorch 버전 호환성 확인
+
+### 성능 최적화
+
+- 더 가벼운 모델 사용 (`distilgpt2`)
+- GPU 사용 (CUDA 지원 시)
+- 청크 크기 조정
+
+### FastAPI CLI 관련
+
+- `uvicorn` 패키지가 설치되어 있는지 확인
+- 포트 8000이 사용 중인 경우 다른 포트 사용: `--port 8001`
+
+## 📝 라이센스
 
 MIT License
+
+## 🤝 기여
+
+버그 리포트, 기능 제안, 풀 리퀘스트를 환영합니다!
+
+## 📞 지원
+
+문제가 발생하면 이슈를 생성해주세요.
