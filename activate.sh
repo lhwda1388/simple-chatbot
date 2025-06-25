@@ -18,19 +18,6 @@ source venv/bin/activate
 # 활성화 확인
 if [ $? -eq 0 ]; then
   echo "✅ 가상환경이 활성화되었습니다!"
-  echo ""
-  echo "📋 사용 가능한 명령어:"
-  echo "   python run.py          - 서버 실행"
-  echo "   python test_api.py     - API 테스트"
-  echo "   deactivate             - 가상환경 비활성화"
-  echo ""
-  echo "🌐 웹 인터페이스: http://localhost:8000/web"
-  echo "📚 API 문서: http://localhost:8000/docs"
-  echo ""
-  echo "🎯 서버를 시작하려면: python run.py"
-
-  # 새로운 bash 세션 시작 (가상환경이 활성화된 상태로)
-  exec bash
 else
   echo "❌ 가상환경 활성화에 실패했습니다."
   exit 1

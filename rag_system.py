@@ -2,21 +2,51 @@ import os
 import asyncio
 from typing import List, Tuple, Optional, Dict, Any
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAI
 from langchain_core.documents import Document
 import uuid
 import json
 from datetime import datetime
+import numpy as np
+
+class SimpleEmbeddings:
+    """간단한 임베딩 클래스 (OpenAI API가 없을 때 사용)"""
+    def __init__(self):
+        self.dimension = 384  # 고정된 차원
+    
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """문서를 임베딩합니다 (간단한 해시 기반)"""
+        embeddings = []
+        for text in texts:
+            # 간단한 해시 기반 임베딩 (실제 사용에서는 더 정교한 방법 필요)
+            np.random.seed(hash(text) % 2**32)
+            embedding = np.random.normal(0, 1, self.dimension).tolist()
+            embeddings.append(embedding)
+        return embeddings
+    
+    def embed_query(self, text: str) -> List[float]:
+        """쿼리를 임베딩합니다"""
+        return self.embed_documents([text])[0]
 
 class RAGSystem:
     def __init__(self):
         """RAG 시스템을 초기화합니다."""
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}
-        )
+        # OpenAI API 키가 있으면 OpenAI 임베딩 사용, 없으면 간단한 임베딩 사용
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                from langchain_openai import OpenAIEmbeddings
+                self.embeddings = OpenAIEmbeddings(
+                    openai_api_key=os.getenv("OPENAI_API_KEY"),
+                    model="text-embedding-ada-002"
+                )
+                self.embedding_type = "openai"
+            except ImportError:
+                self.embeddings = SimpleEmbeddings()
+                self.embedding_type = "simple"
+        else:
+            self.embeddings = SimpleEmbeddings()
+            self.embedding_type = "simple"
         
         # 벡터 스토어 초기화
         self.vector_store = None
@@ -218,5 +248,5 @@ class RAGSystem:
             "total_documents": len(self.documents),
             "vector_store_exists": self.vector_store is not None,
             "llm_available": self.llm is not None,
-            "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
+            "embedding_type": self.embedding_type
         } 
