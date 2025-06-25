@@ -3,10 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
-import uvicorn
 from rag_system import RAGSystem
 import os
 from dotenv import load_dotenv
+from fastapi.responses import RedirectResponse
+
 
 # 환경 변수 로드
 load_dotenv()
@@ -48,7 +49,6 @@ async def root():
 @app.get("/web")
 async def web_interface():
     """웹 인터페이스로 리다이렉트"""
-    from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/static/index.html")
 
 @app.post("/chat", response_model=ChatResponse)
@@ -110,7 +110,4 @@ async def delete_document(document_id: str):
         else:
             raise HTTPException(status_code=404, detail="문서를 찾을 수 없습니다.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"문서 삭제 중 오류가 발생했습니다: {str(e)}")
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+        raise HTTPException(status_code=500, detail=f"문서 삭제 중 오류가 발생했습니다: {str(e)}") 
