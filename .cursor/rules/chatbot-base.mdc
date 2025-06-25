@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+  코드 스타일은 PEP8을 준수
+  모든함수와 클래스에 docstring 을 포함, 함수 정의에는 가능한 타입힌트
+  예외처리 누락없이 가능한 모든예외를 처리

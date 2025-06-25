@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG 챗봇</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .chat-container {
+        width: 90%;
+        max-width: 800px;
+        height: 80vh;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .chat-header h1 {
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+
+      .chat-header p {
+        opacity: 0.9;
+        font-size: 14px;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f8f9fa;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        display: flex;
+        align-items: flex-start;
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .message.bot {
+        justify-content: flex-start;
+      }
+
+      .message-content {
+        max-width: 70%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        word-wrap: break-word;
+      }
+
+      .message.user .message-content {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .message.bot .message-content {
+        background: white;
+        color: #333;
+        border: 1px solid #e0e0e0;
+      }
+
+      .message-sources {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+        font-style: italic;
+      }
+
+      .message-confidence {
+        font-size: 11px;
+        color: #999;
+        margin-top: 3px;
+      }
+
+      .chat-input {
+        padding: 20px;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+      }
+
+      .input-container {
+        display: flex;
+        gap: 10px;
+      }
+
+      .message-input {
+        flex: 1;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        outline: none;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      .message-input:focus {
+        border-color: #667eea;
+      }
+
+      .send-button {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: transform 0.2s;
+      }
+
+      .send-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .send-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .upload-section {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+      }
+
+      .upload-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .file-input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+
+      .upload-button {
+        padding: 8px 16px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .upload-button:hover {
+        background: #218838;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: #666;
+        font-style: italic;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        background: #667eea;
+        border-radius: 50%;
+        animation: bounce 1.4s infinite ease-in-out;
+      }
+
+      .dot:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .dot:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0);
+        }
+        40% {
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">
+        <h1>🤖 RAG 챗봇</h1>
+        <p>문서를 업로드하고 질문해보세요!</p>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message bot">
+          <div class="message-content">
+            안녕하세요! 저는 RAG 챗봇입니다. 📚<br /><br />
+            먼저 문서를 업로드하고, 그 다음 질문을 해주세요. 업로드된 문서를
+            바탕으로 정확한 답변을 제공해드리겠습니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="upload-section">
+        <div class="upload-container">
+          <input
+            type="file"
+            id="fileInput"
+            class="file-input"
+            accept=".txt,.md,.pdf,.docx"
+          />
+          <button onclick="uploadDocument()" class="upload-button">
+            문서 업로드
+          </button>
+        </div>
+      </div>
+
+      <div class="chat-input">
+        <div class="input-container">
+          <input
+            type="text"
+            id="messageInput"
+            class="message-input"
+            placeholder="질문을 입력하세요..."
+            onkeypress="handleKeyPress(event)"
+          />
+          <button onclick="sendMessage()" id="sendButton" class="send-button">
+            전송
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://localhost:8000";
+      let isTyping = false;
+
+      function handleKeyPress(event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      }
+
+      async function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const sendButton = document.getElementById("sendButton");
+        const message = messageInput.value.trim();
+
+        if (!message || isTyping) return;
+
+        // 사용자 메시지 표시
+        addMessage(message, "user");
+        messageInput.value = "";
+
+        // 버튼 비활성화
+        sendButton.disabled = true;
+        isTyping = true;
+
+        // 타이핑 표시
+        showTypingIndicator();
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: message,
+              user_id: "web_user",
+            }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            // 타이핑 표시 제거
+            removeTypingIndicator();
+
+            // 봇 응답 표시
+            addBotMessage(result.response, result.sources, result.confidence);
+          } else {
+            throw new Error(
+              result.detail || "응답 생성 중 오류가 발생했습니다."
+            );
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          removeTypingIndicator();
+          addBotMessage(
+            `죄송합니다. 오류가 발생했습니다: ${error.message}`,
+            [],
+            0
+          );
+        } finally {
+          sendButton.disabled = false;
+          isTyping = false;
+        }
+      }
+
+      function addMessage(content, sender) {
+        const chatMessages = document.getElementById("chatMessages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${sender}`;
+
+        messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                </div>
+            `;
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function addBotMessage(content, sources, confidence) {
+        const chatMessages = document.getElementById("chatMessages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message bot";
+
+        let sourcesHtml = "";
+        if (sources && sources.length > 0) {
+          sourcesHtml = `<div class="message-sources">📄 소스: ${sources.join(
+            ", "
+          )}</div>`;
+        }
+
+        const confidenceHtml = `<div class="message-confidence">신뢰도: ${(
+          confidence * 100
+        ).toFixed(1)}%</div>`;
+
+        messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                    ${sourcesHtml}
+                    ${confidenceHtml}
+                </div>
+            `;
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function showTypingIndicator() {
+        const chatMessages = document.getElementById("chatMessages");
+        const typingDiv = document.createElement("div");
+        typingDiv.className = "message bot";
+        typingDiv.id = "typingIndicator";
+
+        typingDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <span>답변을 생성하고 있습니다...</span>
+                    </div>
+                </div>
+            `;
+
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function removeTypingIndicator() {
+        const typingIndicator = document.getElementById("typingIndicator");
+        if (typingIndicator) {
+          typingIndicator.remove();
+        }
+      }
+
+      async function uploadDocument() {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+
+        if (!file) {
+          alert("파일을 선택해주세요.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/upload-document`, {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addBotMessage(
+              `✅ ${result.message} (총 ${result.document_count}개 문서)`,
+              [],
+              1.0
+            );
+            fileInput.value = "";
+          } else {
+            throw new Error(
+              result.detail || "문서 업로드 중 오류가 발생했습니다."
+            );
+          }
+        } catch (error) {
+          console.error("Upload Error:", error);
+          addBotMessage(`❌ 문서 업로드 실패: ${error.message}`, [], 0);
+        }
+      }
+
+      // 페이지 로드 시 초기화
+      document.addEventListener("DOMContentLoaded", function () {
+        // 포커스 설정
+        document.getElementById("messageInput").focus();
+      });
+    </script>
+  </body>
+</html>
