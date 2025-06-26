@@ -39,6 +39,6 @@ echo "✅ 설정이 완료되었습니다!"
 echo "=" * 60
 echo "다음 단계:"
 echo "1. 가상환경 활성화: source venv/bin/activate"
-echo "2. 서버 실행: python run.py"
+echo "2. 서버 실행: start.sh"
 echo "3. 웹 브라우저에서 http://localhost:8000 접속"
 echo "=" * 60

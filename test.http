@@ -1,0 +1,22 @@
+###
+POST http://localhost:8000/chat
+Content-Type: application/json
+
+{
+    "message": "몇시 출근이야"
+}
+
+###
+GET http://localhost:8000/documents
+
+###
+DELETE http://localhost:8000/documents/1
+
+###
+GET http://localhost:8000/health
+
+
+###
+POST http://localhost:8000/upload-document
+
+file=@회사복지.txt
